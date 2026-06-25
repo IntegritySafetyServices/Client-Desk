@@ -15,6 +15,7 @@ require __DIR__ . '/../src/team.php';
 require __DIR__ . '/../src/events.php';
 require __DIR__ . '/../src/chat.php';
 require __DIR__ . '/../src/tickets.php';
+require __DIR__ . '/../src/timeline.php';
 
 // Security headers (defense in depth; Cloudflare adds more at the edge).
 header('X-Content-Type-Options: nosniff');
@@ -87,6 +88,10 @@ $routes = [
     ['POST',   '/clients',      fn() => clients_create(require_auth())],
     ['PATCH',  '/clients/{id}', fn($id) => clients_update(require_auth(), $id)],
     ['DELETE', '/clients/{id}', fn($id) => clients_delete(require_auth(), $id)],
+    ['GET',    '/clients/{id}/timeline', fn($id) => timeline_list(require_auth(), $id)],
+    ['POST',   '/clients/{id}/timeline', fn($id) => timeline_add(require_auth(), $id)],
+    ['PATCH',  '/timeline/{id}', fn($id) => timeline_update(require_auth(), $id)],
+    ['DELETE', '/timeline/{id}', fn($id) => timeline_delete(require_auth(), $id)],
 
     ['GET',    '/tasks/changes', fn() => tasks_changes(require_auth())],
     ['GET',    '/tasks',        fn() => tasks_list(require_auth())],

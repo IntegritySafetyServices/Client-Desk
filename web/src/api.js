@@ -46,6 +46,10 @@ export const api = {
   createClient: (d) => req('POST', '/clients', d),
   updateClient: (id, d) => req('PATCH', `/clients/${id}`, d),
   deleteClient: (id) => req('DELETE', `/clients/${id}`, {}),
+  timeline:       (clientId) => req('GET', `/clients/${clientId}/timeline`),
+  addTimeline:    (clientId, d) => req('POST', `/clients/${clientId}/timeline`, d),
+  updateTimeline: (id, d) => req('PATCH', `/timeline/${id}`, d),
+  deleteTimeline: (id) => req('DELETE', `/timeline/${id}`, {}),
 
   tasks:      (clientId) => req('GET', `/tasks?client=${clientId}`),
   createTask: (d) => req('POST', '/tasks', d),

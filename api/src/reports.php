@@ -23,7 +23,29 @@ function view_today(array $user): void {
         if ($r['due_date'] < $today) $overdue[] = $item;
         elseif ($r['due_date'] === $today) $due[] = $item;
     }
-    json_out(['overdue' => $overdue, 'today' => $due, 'scope' => $mine ? 'mine' : 'all']);
+
+    // Client-level reminders that have come due (whole-team, regardless of scope).
+    $rm = db()->prepare(
+        'SELECT te.id, te.client_id, te.body, te.entry_date, c.name AS client_name
+         FROM timeline_entries te JOIN clients c ON c.id = te.client_id
+         WHERE te.workspace_id = ? AND te.kind = "reminder" AND te.done_at IS NULL
+           AND te.entry_date <= ?
+         ORDER BY te.entry_date ASC, c.name ASC'
+    );
+    $rm->execute([$wid, $today]);
+    $reminders = [];
+    foreach ($rm->fetchAll() as $r) {
+        $reminders[] = [
+            'id'       => (int)$r['id'],
+            'clientId' => (int)$r['client_id'],
+            'client'   => $r['client_name'],
+            'body'     => $r['body'],
+            'date'     => $r['entry_date'],
+            'overdue'  => $r['entry_date'] < $today,
+        ];
+    }
+
+    json_out(['overdue' => $overdue, 'today' => $due, 'reminders' => $reminders, 'scope' => $mine ? 'mine' : 'all']);
 }
 
 // GET /weekly?scope=mine|all  — a glance at the current calendar week (Mon–Sun in
