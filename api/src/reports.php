@@ -28,7 +28,7 @@ function view_today(array $user): void {
     $rm = db()->prepare(
         'SELECT te.id, te.client_id, te.body, te.entry_date, c.name AS client_name
          FROM timeline_entries te JOIN clients c ON c.id = te.client_id
-         WHERE te.workspace_id = ? AND te.kind = "reminder" AND te.done_at IS NULL
+         WHERE te.workspace_id = ? AND te.kind = "reminder"
            AND te.entry_date <= ?
          ORDER BY te.entry_date ASC, c.name ASC'
     );
@@ -103,10 +103,24 @@ function view_weekly(array $user): void {
                 'assignee'=>$r['assignee_name']];
     }, $us->fetchAll());
 
+    // Reminders dated within this week (client-level, whole team — hidden by default in the UI).
+    $rs = db()->prepare(
+        'SELECT te.id, te.client_id, te.body, te.entry_date, c.name AS client_name
+         FROM timeline_entries te JOIN clients c ON c.id = te.client_id
+         WHERE te.workspace_id = ? AND te.kind = "reminder"
+           AND te.entry_date >= ? AND te.entry_date <= ?
+         ORDER BY te.entry_date ASC, c.name ASC'
+    );
+    $rs->execute([$wid, $monday, $sunday]);
+    $reminders = array_map(function ($r) use ($today) {
+        return ['id'=>(int)$r['id'], 'clientId'=>(int)$r['client_id'], 'client'=>$r['client_name'],
+                'body'=>$r['body'], 'date'=>$r['entry_date'], 'overdue'=>($r['entry_date'] < $today)];
+    }, $rs->fetchAll());
+
     json_out([
         'weekStart' => $monday, 'weekEnd' => $sunday, 'today' => $today, 'aheadTo' => $ahead,
         'scope' => $mine ? 'mine' : 'all',
-        'completed' => $completed, 'upcoming' => $upcoming,
+        'completed' => $completed, 'upcoming' => $upcoming, 'reminders' => $reminders,
     ]);
 }
 

@@ -96,7 +96,7 @@ export default function App() {
 
   const loadClients = useCallback(() => api.clients().then((r) => setClients(r.clients)), []);
   const loadToday = useCallback((sc) => api.today(sc).then(setToday), []);
-  const reminderDone = useCallback((id) => api.updateTimeline(id, { done: true }).then(() => loadToday(scope)).catch(() => {}), [loadToday, scope]);
+  const reminderDelete = useCallback((id) => api.deleteTimeline(id).then(() => loadToday(scope)).catch(() => {}), [loadToday, scope]);
   const loadTasks = useCallback((cid) => api.tasks(cid).then((r) => setTasks(r.tasks)), []);
   const loadMembers = useCallback(() => api.team().then((r) => setMembers(r.members || [])), []);
 
@@ -339,7 +339,7 @@ export default function App() {
           : tab === 'activity' ? <ActivityView members={members} clients={clients} onGoto={gotoClient} reloadSignal={liveTick} />
           : tab === 'clients' ? <MobileClientsView clients={clients} onGoto={gotoClient} onAdd={() => setModal({ type: 'client' })} />
           : tab === 'today' ? <TodayView today={today} scope={scope} onScope={setScope} onStatus={changeStatus} onGoto={gotoClient}
-            onShare={() => setModal({ type: 'share' })} onReminderDone={reminderDone} />
+            onShare={() => setModal({ type: 'share' })} onReminderDelete={reminderDelete} />
           : tab === 'weekly' ? <WeeklyView onGoto={gotoClient} />
           : selected ? <ClientView client={selected} tasks={tasks} memberName={memberName} isAdmin={isAdmin}
             onAddTask={() => setModal({ type: 'task' })}
@@ -647,7 +647,7 @@ function TaskCard({ t, onStatus, onEdit, onDelete }) {
   );
 }
 
-function TodayView({ today, scope, onScope, onStatus, onGoto, onShare, onReminderDone }) {
+function TodayView({ today, scope, onScope, onStatus, onGoto, onShare, onReminderDelete }) {
   const reminders = today.reminders || [];
   const count = today.overdue.length + today.today.length + reminders.length;
   return (
@@ -670,7 +670,7 @@ function TodayView({ today, scope, onScope, onStatus, onGoto, onShare, onReminde
               <p>{scope === 'mine' ? 'Nothing assigned to you is overdue or due today.' : 'Nothing across the team is overdue or due today.'} Add due dates to tasks and they'll show up here.</p>
             </div>
           : <>
-            <TodayReminders items={reminders} onGoto={onGoto} onDone={onReminderDone} />
+            <TodayReminders items={reminders} onGoto={onGoto} onDelete={onReminderDelete} />
             <TodaySection title="Overdue" kind="over" items={today.overdue} scope={scope} onStatus={onStatus} onGoto={onGoto} />
             <TodaySection title="Due today" kind="today" items={today.today} scope={scope} onStatus={onStatus} onGoto={onGoto} />
           </>}
@@ -679,27 +679,42 @@ function TodayView({ today, scope, onScope, onStatus, onGoto, onShare, onReminde
   );
 }
 
-function TodayReminders({ items, onGoto, onDone }) {
+function ReminderRow({ r, onGoto, onDelete }) {
+  return (
+    <div className="brief-card">
+      <div className="bc-body">
+        <button className="eyebrow" onClick={() => onGoto(r.clientId)} title={`Go to ${r.client}`}>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 1.5h4l2.5 2.5v6.5H3z" /></svg>{r.client}
+        </button>
+        <p className="bc-title">{r.body}</p>
+        <div className={'bc-due' + (r.overdue ? ' over' : ' today')}>Reminder · {fmtDate(r.date)}</div>
+      </div>
+      <div className="t-actions">
+        <button className="icon-btn" title="Delete reminder" onClick={() => onDelete(r.id)}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h10M6 4V2.5h4V4M5 4l.5 9h5L11 4" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RemindersGroup({ items, onGoto, onDelete, defaultShown }) {
+  const [show, setShow] = useState(defaultShown);
   if (!items || !items.length) return null;
   return (
     <div className="group">
-      <div className="group-head"><span className="dot reminder" /><h3>Reminders</h3><span className="n">{items.length}</span></div>
-      {items.map((r) => (
-        <div className="brief-card" key={'rm' + r.id}>
-          <div className="bc-body">
-            <button className="eyebrow" onClick={() => onGoto(r.clientId)} title={`Go to ${r.client}`}>
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 1.5h4l2.5 2.5v6.5H3z" /></svg>{r.client}
-            </button>
-            <p className="bc-title">{r.body}</p>
-            <div className={'bc-due' + (r.overdue ? ' over' : ' today')}>{r.overdue ? `Reminder · was ${fmtDate(r.date)}` : 'Reminder · today'}</div>
-          </div>
-          <div className="t-actions">
-            <button className="btn sm" onClick={() => onDone(r.id)} title="Mark this reminder done">Done</button>
-          </div>
-        </div>
-      ))}
+      <div className="group-head">
+        <span className="dot reminder" /><h3>Reminders</h3><span className="n">{items.length}</span>
+        <button className="rm-toggle" onClick={() => setShow((s) => !s)}>{show ? 'Hide' : 'Show'}</button>
+      </div>
+      {show && items.map((r) => <ReminderRow key={'rm' + r.id} r={r} onGoto={onGoto} onDelete={onDelete} />)}
     </div>
   );
+}
+
+function TodayReminders({ items, onGoto, onDelete }) {
+  if (!items || !items.length) return null;
+  return <RemindersGroup items={items} onGoto={onGoto} onDelete={onDelete} defaultShown={true} />;
 }
 
 function TodaySection({ title, kind, items, scope, onStatus, onGoto }) {
@@ -1064,6 +1079,8 @@ function WeeklyView({ onGoto }) {
   useEffect(() => { load(); }, [load]);
   const completed = data?.completed || [];
   const upcoming = data?.upcoming || [];
+  const reminders = data?.reminders || [];
+  const delReminder = async (id) => { try { await api.deleteTimeline(id); await load(); } catch { /* */ } };
   const range = data ? `${fmtDate(data.weekStart)} – ${fmtDate(data.weekEnd)}` : 'Mon–Sun';
   const clientIcon = (
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 1.5h4l2.5 2.5v6.5H3z" /></svg>
@@ -1082,7 +1099,9 @@ function WeeklyView({ onGoto }) {
       <div className="content">
         {data === null
           ? <p className="none">Loading…</p>
-          : completed.length === 0 && upcoming.length === 0
+          : <>
+              {reminders.length > 0 && <RemindersGroup items={reminders} onGoto={onGoto} onDelete={delReminder} defaultShown={false} />}
+              {completed.length === 0 && upcoming.length === 0
             ? <div className="all-clear">
                 <div className="glyph"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /></svg></div>
                 <h3>A quiet week so far</h3>
@@ -1123,6 +1142,7 @@ function WeeklyView({ onGoto }) {
                       ))}
                 </div>
               </>}
+            </>}
       </div>
     </>
   );
@@ -1180,18 +1200,17 @@ function TimelineView({ client }) {
     try { await api.addTimeline(client.id, { kind, body: bodyText.trim(), date }); setBodyText(''); setDate(todayStr()); await load(); }
     catch (err) { /* surfaced via disabled state */ } finally { setBusy(false); }
   };
-  const toggleDone = async (en) => { try { await api.updateTimeline(en.id, { done: !en.done }); await load(); } catch { /* */ } };
-  const editEntry = async (en) => { const v = window.prompt('Edit entry', en.body); if (v == null) return; const t = v.trim(); if (!t) return; try { await api.updateTimeline(en.id, { body: t }); await load(); } catch { /* */ } };
+  const save = async (id, patch) => { try { await api.updateTimeline(id, patch); await load(); } catch { /* */ } };
   const del = async (en) => { if (!window.confirm('Delete this timeline entry?')) return; try { await api.deleteTimeline(en.id); await load(); } catch { /* */ } };
 
   if (!data) return <p className="none" style={{ padding: '14px 2px' }}>Loading timeline…</p>;
 
   const today = data.today || todayStr();
   const upcoming = data.entries
-    .filter((e) => e.kind === 'reminder' && !e.done && e.date >= today)
+    .filter((e) => e.kind === 'reminder' && e.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
   const rest = [
-    ...data.entries.filter((e) => !(e.kind === 'reminder' && !e.done && e.date >= today)),
+    ...data.entries.filter((e) => !(e.kind === 'reminder' && e.date >= today)),
     ...data.tasks,
   ].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -1211,7 +1230,7 @@ function TimelineView({ client }) {
       {upcoming.length > 0 && (
         <div className="tl-upcoming">
           <div className="group-head"><span className="dot reminder" /><h3>Upcoming reminders</h3><span className="n">{upcoming.length}</span></div>
-          {upcoming.map((en) => <TimelineEntry key={'u' + en.id} en={en} today={today} onDone={toggleDone} onEdit={editEntry} onDelete={del} />)}
+          {upcoming.map((en) => <TimelineEntry key={'u' + en.id} en={en} today={today} onSave={save} onDelete={del} />)}
         </div>
       )}
 
@@ -1220,7 +1239,7 @@ function TimelineView({ client }) {
           ? <p className="none" style={{ padding: '10px 2px' }}>Nothing on the timeline yet. Add a reminder or note above.</p>
           : rest.map((it) => it.kind === 'task'
               ? <TimelineTask key={'t' + it.id} it={it} />
-              : <TimelineEntry key={'e' + it.id} en={it} today={today} onDone={toggleDone} onEdit={editEntry} onDelete={del} />)}
+              : <TimelineEntry key={'e' + it.id} en={it} today={today} onSave={save} onDelete={del} />)}
       </div>
     </div>
   );
@@ -1241,28 +1260,47 @@ function TimelineTask({ it }) {
   );
 }
 
-function TimelineEntry({ en, today, onDone, onEdit, onDelete }) {
+function TimelineEntry({ en, today, onSave, onDelete }) {
   const isReminder = en.kind === 'reminder';
-  const overdue = isReminder && !en.done && en.date < today;
+  const overdue = isReminder && en.date < today;
+  const [editing, setEditing] = useState(false);
+  const [body, setBody] = useState(en.body);
+  const [date, setDate] = useState(en.date);
+  const startEdit = () => { setBody(en.body); setDate(en.date); setEditing(true); };
+  const save = async () => { const b = body.trim(); if (!b) return; await onSave(en.id, { body: b, date }); setEditing(false); };
   return (
-    <div className={'tl-item tl-entry ' + en.kind + (en.done ? ' done' : '') + (overdue ? ' overdue' : '')}>
+    <div className={'tl-item tl-entry ' + en.kind + (overdue ? ' overdue' : '')}>
       <span className="tl-date">{fmtDate(en.date)}</span>
       <div className="tl-dot-line"><span className={'tl-node ' + en.kind} /></div>
       <div className="tl-card">
         <div className="tl-card-top">
-          <span className="tl-kind">{isReminder ? (en.done ? 'Reminder · done' : overdue ? 'Reminder · overdue' : 'Reminder') : 'Note'}</span>
+          <span className="tl-kind">{isReminder ? (overdue ? 'Reminder · overdue' : 'Reminder') : 'Note'}</span>
           <div className="tl-actions">
-            {isReminder && <button className="btn xs" onClick={() => onDone(en)}>{en.done ? 'Reopen' : 'Mark done'}</button>}
-            <button className="icon-btn" title="Edit" onClick={() => onEdit(en)}>
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2l3 3-8 8H3v-3z" /></svg>
-            </button>
+            {!editing && (
+              <button className="icon-btn" title="Edit" onClick={startEdit}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2l3 3-8 8H3v-3z" /></svg>
+              </button>
+            )}
             <button className="icon-btn" title="Delete" onClick={() => onDelete(en)}>
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 4h10M6 4V2.5h4V4M5 4l.5 9h5L11 4" /></svg>
             </button>
           </div>
         </div>
-        <p className="tl-body">{en.body}</p>
-        {en.author && <span className="tl-by">{en.author}</span>}
+        {editing ? (
+          <div className="tl-edit">
+            <input className="tl-text" value={body} onChange={(e) => setBody(e.target.value)} />
+            <div className="tl-edit-row">
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} title={isReminder ? 'Reminder date' : 'Note date'} />
+              <button className="btn xs primary" onClick={save}>Save</button>
+              <button className="btn xs" onClick={() => setEditing(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="tl-body">{en.body}</p>
+            {en.author && <span className="tl-by">{en.author}</span>}
+          </>
+        )}
       </div>
     </div>
   );

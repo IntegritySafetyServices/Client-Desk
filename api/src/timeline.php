@@ -115,12 +115,8 @@ function timeline_update(array $user, int $id): void {
     $body = array_key_exists('body', $b) ? trim((string)$b['body']) : $cur['body'];
     if ($body === '') json_out(['error' => 'Write something first'], 422);
     $date = array_key_exists('date', $b) ? (norm_date($b['date']) ?? $cur['entry_date']) : $cur['entry_date'];
-    $done = $cur['done_at'];
-    if (array_key_exists('done', $b)) {
-        $done = $b['done'] ? ($cur['done_at'] ?? gmdate('Y-m-d H:i:s')) : null;
-    }
-    $s = db()->prepare('UPDATE timeline_entries SET body = ?, entry_date = ?, done_at = ? WHERE id = ?');
-    $s->execute([$body, $date, $done, $id]);
+    $s = db()->prepare('UPDATE timeline_entries SET body = ?, entry_date = ? WHERE id = ?');
+    $s->execute([$body, $date, $id]);
     json_out(['ok' => true]);
 }
 
