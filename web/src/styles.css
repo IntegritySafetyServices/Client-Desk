@@ -899,9 +899,9 @@
   .rep-client-name{background:#f4f7f2}
 }
 
-/* ---- TV urgent carousel (one client per slide, auto-rotating with position dots) ---- */
+/* ---- TV upcoming carousel (a few high-priority items per slide, auto-rotating with dots) ---- */
 .tv-carousel{flex:1;min-height:0;display:flex;flex-direction:column;gap:clamp(10px,1.2vw,18px)}
-.tv-carousel-stage{flex:1;min-height:0;grid-template-columns:1fr}
+.tv-carousel .tv-up-list{flex:1}
 .tv-dots{display:flex;justify-content:center;gap:clamp(8px,.8vw,12px);flex-shrink:0;padding-top:2px}
 .tv-pip{width:clamp(9px,.8vw,13px);height:clamp(9px,.8vw,13px);border-radius:50%;
   background:var(--line);transition:background .3s,transform .3s}

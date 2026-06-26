@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 
 const REFRESH_MS = 30000;
-const URGENT_ROTATE_MS = 8000; // how long each client's urgent items hold on the TV before advancing
+const TV_ROTATE_MS = 8000;     // how long each slide of upcoming items holds before advancing
+const UPCOMING_PAGE_SIZE = 4;  // high-priority items shown per slide on the TV
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' };
 
 // Same palette the month calendar uses, so deadlines read as "that person's color".
@@ -58,47 +59,43 @@ function daysOverdue(dueDate) {
   return Math.round((Date.now() - new Date(dueDate + 'T00:00:00').getTime()) / 86400000);
 }
 
-// The TV only has room to show one cluster of urgent items at a time, so rotate through
-// the client groups — one per slide, advancing on a timer — with dots marking position.
-function UrgentCarousel({ groups }) {
+// The bottom "Upcoming High Priority" panel can hold more items than fit on the TV at once,
+// so page through them — a few per slide, advancing on a timer — with dots marking position.
+function UpcomingCarousel({ items }) {
   const [page, setPage] = useState(0);
-  const n = groups.length;
+  const pages = Math.max(1, Math.ceil(items.length / UPCOMING_PAGE_SIZE));
 
   useEffect(() => {
-    if (n <= 1) return undefined;
-    const t = setInterval(() => setPage((p) => (p + 1) % n), URGENT_ROTATE_MS);
+    if (pages <= 1) return undefined;
+    const t = setInterval(() => setPage((p) => (p + 1) % pages), TV_ROTATE_MS);
     return () => clearInterval(t);
-  }, [n]);
+  }, [pages]);
 
-  // Keep the index valid if the group count shrinks between data refreshes.
-  useEffect(() => { if (n > 0 && page >= n) setPage(0); }, [n, page]);
+  // Keep the index valid if the count shrinks between data refreshes.
+  useEffect(() => { if (page >= pages) setPage(0); }, [pages, page]);
 
-  if (n === 0) return null;
-  const idx = page % n;
-  const g = groups[idx];
+  const idx = page % pages;
+  const start = idx * UPCOMING_PAGE_SIZE;
+  const slice = items.slice(start, start + UPCOMING_PAGE_SIZE);
 
   return (
     <div className="tv-carousel">
-      <div className="tv-clients tv-carousel-stage">
-        <div className="tv-client" key={g.client}>
-          <h3 className="tv-client-name">{g.client}</h3>
-          <ul className="tv-tasks">
-            {g.items.map((t) => (
-              <li className={'tv-task' + (t.kind === 'over' ? ' is-over' : '')} key={t.id}>
-                {dot(t.priority)}
-                <span className="tv-task-title">{t.title}</span>
-                <span className={'tv-due' + (t.kind === 'over' ? ' over' : ' today')}>
-                  {t.kind === 'over' ? `Overdue · ${daysOverdue(t.dueDate)}d` : 'Due today'}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      {n > 1 && (
-        <div className="tv-dots" aria-label={`${n} clients`}>
-          {groups.map((gr, i) => (
-            <span key={gr.client} className={'tv-pip' + (i === idx ? ' on' : '')} />
+      <ul className="tv-up-list">
+        {slice.map((t) => (
+          <li className="tv-up" key={t.id}>
+            {dot('high')}
+            <span className="tv-up-main">
+              <span className="tv-up-title">{t.title}</span>
+              <span className="tv-up-client">{t.client}</span>
+            </span>
+            <span className="tv-up-due">{fmtDay(t.dueDate)}</span>
+          </li>
+        ))}
+      </ul>
+      {pages > 1 && (
+        <div className="tv-dots" aria-label={`${pages} pages`}>
+          {Array.from({ length: pages }, (_, i) => (
+            <span key={i} className={'tv-pip' + (i === idx ? ' on' : '')} />
           ))}
         </div>
       )}
@@ -198,7 +195,26 @@ function TodayBoard({ tabs }) {
             <p>All clear — nothing overdue and nothing due today.</p>
           </div>
         ) : (
-          <UrgentCarousel groups={groups} />
+          <div className="tv-clients">
+            {groups.map((g) => (
+              <div className="tv-client" key={g.client}>
+                <h3 className="tv-client-name">{g.client}</h3>
+                <ul className="tv-tasks">
+                  {g.items.map((t) => (
+                    <li className={'tv-task' + (t.kind === 'over' ? ' is-over' : '')} key={t.id}>
+                      {dot(t.priority)}
+                      <span className="tv-task-title">{t.title}</span>
+                      <span className={'tv-due' + (t.kind === 'over' ? ' over' : ' today')}>
+                        {t.kind === 'over'
+                          ? `Overdue · ${daysOverdue(t.dueDate)}d`
+                          : 'Due today'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </section>
 
@@ -211,18 +227,7 @@ function TodayBoard({ tabs }) {
           {data.upcoming.length === 0 ? (
             <p className="tv-empty">No high-priority work due the rest of this week.</p>
           ) : (
-            <ul className="tv-up-list">
-              {data.upcoming.map((t) => (
-                <li className="tv-up" key={t.id}>
-                  {dot('high')}
-                  <span className="tv-up-main">
-                    <span className="tv-up-title">{t.title}</span>
-                    <span className="tv-up-client">{t.client}</span>
-                  </span>
-                  <span className="tv-up-due">{fmtDay(t.dueDate)}</span>
-                </li>
-              ))}
-            </ul>
+            <UpcomingCarousel items={data.upcoming} />
           )}
         </section>
 
