@@ -1140,9 +1140,14 @@ function WeeklyView({ onGoto }) {
           ? <p className="none">Loading…</p>
           : (
             <div className="weekly-report" id="weekly-report">
-              {/* Header for the printed/PDF copy (hidden on screen — the topbar covers it there). */}
-              <div className="rep-print-head">
-                <div className="rep-ph-name">{data.workspace || 'Client Desk'}</div>
+              {/* Masthead — printed/PDF only (the topbar covers the title on screen). */}
+              <div className="rep-print-head" style={data.brand?.accent ? { borderBottomColor: data.brand.accent } : undefined}>
+                <div className="rep-ph-brand">
+                  {data.brand?.logo
+                    ? <img className="rep-logo" src={data.brand.logo} alt={data.brand?.company || 'Logo'} />
+                    : <span className="rep-ph-name" style={data.brand?.accent ? { color: data.brand.accent } : undefined}>{data.brand?.company || data.workspace || 'Client Desk'}</span>}
+                  {data.brand?.logo && <span className="rep-ph-co">{data.brand?.company || data.workspace}</span>}
+                </div>
                 <h1 className="rep-ph-title">Weekly report{clientName ? ` — ${clientName}` : ''}</h1>
                 <div className="rep-ph-meta">Completed {range} · Upcoming through {fmtDate(data.upTo)} · Generated {fmtLong(Date.now())}</div>
               </div>
@@ -1162,47 +1167,44 @@ function WeeklyView({ onGoto }) {
                         <span><b>{groups.length}</b> {groups.length === 1 ? 'client' : 'clients'}</span>
                       </div>
                     )}
-                    {shown.map((g) => (
-                      <section className="rep-client" key={g.clientId}>
-                        <button className="rep-client-name" onClick={() => onGoto(g.clientId)} title={`Go to ${g.client}`}>
-                          {clientIcon}{g.client}
-                        </button>
-                        <div className="rep-cols">
-                          <div className="rep-col">
-                            <div className="rep-col-head"><span className="dot done" />Completed<span className="n">{g.completed.length}</span></div>
-                            {g.completed.length === 0
-                              ? <p className="rep-none">—</p>
-                              : <ul className="rep-list">
-                                  {g.completed.map((t) => (
-                                    <li key={'c' + t.id}>
-                                      <span className="rep-task">{t.title}</span>
-                                      <span className="rep-meta">{fmtDate(t.completedAt)}{scope === 'all' && t.assignee ? ` · ${t.assignee}` : ''}</span>
-                                    </li>
-                                  ))}
-                                </ul>}
-                          </div>
-                          <div className="rep-col">
-                            <div className="rep-col-head"><span className="dot inprogress" />Coming up<span className="n">{g.upcoming.length}</span></div>
-                            {g.upcoming.length === 0
-                              ? <p className="rep-none">—</p>
-                              : <ul className="rep-list">
-                                  {g.upcoming.map((t) => (
-                                    <li key={'u' + t.id}>
+                    {shown.map((g) => {
+                      // Only render sections that actually have items — no empty "—" filler.
+                      const cols = [];
+                      if (g.completed.length) cols.push({ key: 'done', label: 'Completed', dotCls: 'done', kind: 'done', items: g.completed });
+                      if (g.upcoming.length) cols.push({ key: 'up', label: 'Coming up', dotCls: 'inprogress', kind: 'up', items: g.upcoming });
+                      return (
+                        <section className="rep-client" key={g.clientId}>
+                          <button className="rep-client-name" onClick={() => onGoto(g.clientId)} title={`Go to ${g.client}`}>
+                            {clientIcon}{g.client}
+                          </button>
+                          <div className={'rep-cols cols-' + cols.length}>
+                            {cols.map((col) => (
+                              <div className="rep-col" key={col.key}>
+                                <div className="rep-col-head"><span className={'dot ' + col.dotCls} />{col.label}<span className="n">{col.items.length}</span></div>
+                                <ul className="rep-list">
+                                  {col.items.map((t) => (
+                                    <li key={col.key + t.id}>
                                       <span className="rep-task">
-                                        {t.priority && t.priority !== 'medium' && <span className={'prio-chip ' + t.priority} style={{ marginRight: 6 }}>{PRIORITY_LABEL[t.priority]}</span>}
+                                        {col.kind === 'up' && t.priority && t.priority !== 'medium' && <span className={'prio-chip ' + t.priority} style={{ marginRight: 6 }}>{PRIORITY_LABEL[t.priority]}</span>}
                                         {t.title}
-                                        {t.status === 'blocked' && <span className="rep-blocked">Blocked</span>}
+                                        {col.kind === 'up' && t.status === 'blocked' && <span className="rep-blocked">Blocked</span>}
                                       </span>
-                                      <span className="rep-meta">{t.dueToday ? 'Due today' : `Due ${fmtDate(t.dueDate)}`}{scope === 'all' && t.assignee ? ` · ${t.assignee}` : ''}</span>
+                                      <span className="rep-meta">
+                                        {col.kind === 'done' ? fmtDate(t.completedAt) : (t.dueToday ? 'Due today' : `Due ${fmtDate(t.dueDate)}`)}
+                                        {scope === 'all' && t.assignee ? ` · ${t.assignee}` : ''}
+                                      </span>
                                     </li>
                                   ))}
-                                </ul>}
+                                </ul>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      </section>
-                    ))}
+                        </section>
+                      );
+                    })}
                   </>
                 )}
+              <div className="rep-print-foot">{data.brand?.company || data.workspace || 'Client Desk'} · {fmtLong(Date.now())}</div>
             </div>
           )}
       </div>

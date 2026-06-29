@@ -863,7 +863,10 @@
   background:var(--surface-2);border:none;border-bottom:1px solid var(--line-soft);
   padding:11px 16px;cursor:pointer}
 .rep-client-name:hover{color:var(--accent)}
-.rep-cols{display:grid;grid-template-columns:1fr 1fr}
+.rep-cols{display:grid}
+.rep-cols.cols-1{grid-template-columns:1fr}
+.rep-cols.cols-2{grid-template-columns:1fr 1fr}
+.rep-print-foot{display:none}
 .rep-col{padding:13px 16px}
 .rep-col + .rep-col{border-left:1px solid var(--line-soft)}
 .rep-col-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;
@@ -879,24 +882,44 @@
   color:var(--amber);background:var(--amber-soft);border-radius:5px;padding:1px 6px}
 
 @media (max-width:640px){
-  .rep-cols{grid-template-columns:1fr}
+  .rep-cols.cols-2{grid-template-columns:1fr}
   .rep-col + .rep-col{border-left:none;border-top:1px solid var(--line-soft)}
 }
 
-/* Print / Save-as-PDF: show only the report, with a print-only masthead. */
+/* Print / Save-as-PDF: show only the report as a designed document. */
 @media print{
-  @page{margin:14mm}
+  @page{margin:14mm 14mm 16mm}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   body *{visibility:hidden}
   #weekly-report,#weekly-report *{visibility:visible}
-  #weekly-report{position:absolute;left:0;top:0;width:100%;padding:0}
-  .rep-print-head{display:block;margin:0 0 16px;padding:0 0 12px;border-bottom:2px solid var(--accent)}
-  .rep-ph-name{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-deep);font-weight:600}
-  .rep-ph-title{font-family:var(--display);font-weight:600;font-size:24px;color:var(--ink);margin:4px 0 6px}
-  .rep-ph-meta{font-size:12px;color:var(--ink-soft)}
-  .rep-summary{background:#f4f7f2}
-  .rep-client{break-inside:avoid;box-shadow:none;border:1px solid #cfd6cd;margin-bottom:12px}
-  .rep-client-name{background:#f4f7f2}
+  #weekly-report{position:absolute;left:0;top:0;width:100%;padding:0 0 10mm}
+
+  /* Masthead */
+  .rep-print-head{display:block;margin:0 0 14px;padding:0 0 11px;border-bottom:2px solid var(--accent)}
+  .rep-ph-brand{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+  .rep-logo{max-height:44px;width:auto;display:block}
+  .rep-ph-co{font-size:13px;font-weight:600;color:var(--ink-soft)}
+  .rep-ph-name{font-size:13px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+  .rep-ph-title{font-family:var(--display);font-weight:600;font-size:23px;color:var(--ink);margin:2px 0 5px}
+  .rep-ph-meta{font-size:11.5px;color:var(--ink-soft)}
+
+  /* Compact, document-style body */
+  .rep-summary{background:#f4f7f2;margin:0 0 14px;padding:8px 12px;font-size:11.5px;gap:16px}
+  .rep-client{box-shadow:none;border:1px solid #cfd6cd;margin:0 0 11px}
+  .rep-client-name{background:#f4f7f2;font-size:15px;padding:9px 13px}
+  .rep-col{padding:10px 13px}
+  .rep-col-head{font-size:11px;margin:0 0 7px}
+  .rep-list{gap:6px}
+  .rep-task{font-size:12.5px;line-height:1.3}
+  .rep-meta{font-size:11px}
+
+  /* Keep a client (and its columns) intact across page breaks; no orphaned headers. */
+  .rep-client,.rep-cols,.rep-col,.rep-list li{break-inside:avoid;page-break-inside:avoid}
+  .rep-client-name{break-after:avoid;page-break-after:avoid}
+
+  /* Footer band, repeated on every printed page. */
+  .rep-print-foot{display:block;position:fixed;left:0;right:0;bottom:6mm;
+    text-align:center;font-size:9.5px;letter-spacing:.02em;color:#7a857d}
 }
 
 /* ---- TV upcoming carousel (a few high-priority items per slide, auto-rotating with dots) ---- */

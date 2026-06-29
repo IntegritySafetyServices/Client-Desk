@@ -116,9 +116,19 @@ function view_weekly(array $user): void {
                 'body'=>$r['body'], 'date'=>$r['entry_date'], 'overdue'=>($r['entry_date'] < $today)];
     }, $rs->fetchAll());
 
+    // Reuse the email-branding resolver so the printed report's masthead matches
+    // the company name / logo / accent already configured for transactional email.
+    $brand = function_exists('mail_brand') ? mail_brand($wid) : [];
+
     json_out([
         'today' => $today, 'doneFrom' => $from7, 'doneTo' => $today, 'upTo' => $ahead,
         'workspace' => workspace_name($wid),
+        'brand' => [
+            'company' => $brand['company'] ?? workspace_name($wid),
+            'logo'    => $brand['logo'] ?? '',
+            'tagline' => $brand['tagline'] ?? '',
+            'accent'  => $brand['accent'] ?? '#B26B22',
+        ],
         'scope' => $mine ? 'mine' : 'all',
         'completed' => $completed, 'upcoming' => $upcoming, 'reminders' => $reminders,
     ]);
