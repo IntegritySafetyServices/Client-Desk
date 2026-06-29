@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api.js';
 import { Modal } from './Modals.jsx';
+import { DateWarn } from '../dateflags.jsx';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const ASSIGNEE_COLORS = ['#1C6E78', '#B26B22', '#3E7E58', '#7A3F6E', '#34568C', '#9A6324', '#4F7A2F', '#A03D55'];
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-export default function Calendar({ members, meId, onGotoClient, flash, reloadSignal }) {
+export default function Calendar({ members, meId, holidays = [], onGotoClient, flash, reloadSignal }) {
   const today = new Date();
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const [data, setData] = useState({ events: [], deadlines: [], conflicts: {} });
@@ -112,12 +113,12 @@ export default function Calendar({ members, meId, onGotoClient, flash, reloadSig
         </div>
       </div>
 
-      {modal && <EventModal init={modal} meId={meId} onSave={save} onDelete={remove} onClose={() => setModal(null)} />}
+      {modal && <EventModal init={modal} meId={meId} holidays={holidays} onSave={save} onDelete={remove} onClose={() => setModal(null)} />}
     </>
   );
 }
 
-function EventModal({ init, meId, onSave, onDelete, onClose }) {
+function EventModal({ init, meId, holidays = [], onSave, onDelete, onClose }) {
   const ev = init.event || null;
   const [title, setTitle] = useState(ev?.title || '');
   const [type, setType] = useState(ev?.type || 'meeting');
@@ -163,6 +164,7 @@ function EventModal({ init, meId, onSave, onDelete, onClose }) {
             <div className="field"><label>Starts</label><input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} /></div>
             <div className="field"><label>Ends</label><input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} /></div>
           </div>}
+      <DateWarn date={allDay ? date : (start ? start.slice(0, 10) : '')} holidays={holidays} />
     </Modal>
   );
 }

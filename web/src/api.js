@@ -77,6 +77,10 @@ export const api = {
   deleteEvent: (id) => req('DELETE', `/events/${id}`, {}),
   setTheme:    (d) => req('POST', '/team/theme', d),
 
+  holidays:      () => req('GET', '/holidays'),
+  addHoliday:    (day, label) => req('POST', '/holidays', { day, label }),
+  deleteHoliday: (id) => req('DELETE', `/holidays/${id}`, {}),
+
   conversations: () => req('GET', '/conversations'),
   openDm:        (userId) => req('POST', '/conversations/dm', { userId }),
   messages:      (id, after) => req('GET', `/conversations/${id}/messages?after=${after || 0}`),

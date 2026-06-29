@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import { DateWarn } from '../dateflags.jsx';
 
 const STATUSES = [
   ['todo', 'To do'], ['inprogress', 'In progress'], ['blocked', 'Blocked'], ['done', 'Done'],
@@ -58,7 +59,7 @@ export function ClientModal({ client, onSave, onDelete, onClose }) {
   );
 }
 
-export function TaskModal({ task, members = [], onSave, onClose }) {
+export function TaskModal({ task, members = [], holidays = [], onSave, onClose }) {
   const editing = !!task;
   const [title, setTitle] = useState(task?.title || '');
   const [detail, setDetail] = useState(task?.detail || '');
@@ -108,7 +109,8 @@ export function TaskModal({ task, members = [], onSave, onClose }) {
             {members.map((m) => <option key={m.id} value={m.id}>{m.name || m.email}</option>)}
           </select></div>
         <div className="field"><label>Due date <span className="hint">— optional</span></label>
-          <input type="date" value={dueDate || ''} onChange={(e) => setDueDate(e.target.value)} /></div>
+          <input type="date" value={dueDate || ''} onChange={(e) => setDueDate(e.target.value)} />
+          <DateWarn date={dueDate} holidays={holidays} /></div>
       </div>
       <div className="field"><label>Private note <span className="hint">— internal only, never in reports</span></label>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Just for you" /></div>

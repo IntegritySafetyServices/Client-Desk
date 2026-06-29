@@ -16,6 +16,7 @@ require __DIR__ . '/../src/events.php';
 require __DIR__ . '/../src/chat.php';
 require __DIR__ . '/../src/tickets.php';
 require __DIR__ . '/../src/timeline.php';
+require __DIR__ . '/../src/holidays.php';
 
 // Security headers (defense in depth; Cloudflare adds more at the edge).
 header('X-Content-Type-Options: nosniff');
@@ -53,6 +54,10 @@ $routes = [
     ['DELETE', '/team/member/{id}', fn($id) => team_remove(require_auth(), $id)],
     ['POST',   '/team/member/{id}/reset', fn($id) => team_member_reset(require_auth(), $id)],
     ['POST',   '/team/theme',       fn() => team_set_theme(require_auth())],
+
+    ['GET',    '/holidays',      fn() => holidays_list(require_auth())],
+    ['POST',   '/holidays',      fn() => holidays_create(require_auth())],
+    ['DELETE', '/holidays/{id}', fn($id) => holidays_delete(require_auth(), $id)],
 
     ['GET',    '/calendar',     fn() => view_calendar(require_auth())],
     ['POST',   '/events',       fn() => events_create(require_auth())],

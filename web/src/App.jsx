@@ -6,6 +6,7 @@ import Calendar from './components/Calendar.jsx';
 import Messages from './components/Messages.jsx';
 import Portal from './components/Portal.jsx';
 import TVDashboard from './components/TVDashboard.jsx';
+import { DateWarn } from './dateflags.jsx';
 import { applyTheme, PRESETS } from './theme.js';
 
 const STATUS_LABEL = { todo: 'To do', inprogress: 'In progress', blocked: 'Blocked', done: 'Done' };
@@ -53,6 +54,7 @@ export default function App() {
   const [theme, setTheme] = useState('');
   const [clients, setClients] = useState([]);
   const [members, setMembers] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [tab, setTab] = useState('today');
   const [selectedId, setSelectedId] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -99,8 +101,9 @@ export default function App() {
   const reminderDelete = useCallback((id) => api.deleteTimeline(id).then(() => loadToday(scope)).catch(() => {}), [loadToday, scope]);
   const loadTasks = useCallback((cid) => api.tasks(cid).then((r) => setTasks(r.tasks)), []);
   const loadMembers = useCallback(() => api.team().then((r) => setMembers(r.members || [])), []);
+  const loadHolidays = useCallback(() => api.holidays().then((r) => setHolidays(r.holidays || [])).catch(() => {}), []);
 
-  useEffect(() => { if (user && kind === 'team' && !tvMode) { loadClients(); loadMembers(); } }, [user, kind, tvMode, loadClients, loadMembers]);
+  useEffect(() => { if (user && kind === 'team' && !tvMode) { loadClients(); loadMembers(); loadHolidays(); } }, [user, kind, tvMode, loadClients, loadMembers, loadHolidays]);
   useEffect(() => { if (user && kind === 'team' && !tvMode) loadToday(scope); }, [user, kind, tvMode, scope, loadToday]);
   useEffect(() => { if (user && kind === 'team' && !tvMode && tab === 'client' && selectedId) loadTasks(selectedId); }, [user, kind, tvMode, tab, selectedId, loadTasks]);
 
@@ -233,7 +236,7 @@ export default function App() {
     catch (e) { flash(e.message); }
   };
 
-  const logout = async () => { await api.logout(); setCsrf(null); liveCursor.current = null; setLiveNotes([]); setUser(null); setClients([]); setTasks([]); setMembers([]); setTab('today'); setSelectedId(null); };
+  const logout = async () => { await api.logout(); setCsrf(null); liveCursor.current = null; setLiveNotes([]); setUser(null); setClients([]); setTasks([]); setMembers([]); setHolidays([]); setTab('today'); setSelectedId(null); };
   const openTV = () => window.open(window.location.pathname + '#tv', '_blank', 'noopener');
 
   const saveTheme = async (themeObj) => {
@@ -332,10 +335,10 @@ export default function App() {
 
       <main className="main">
         {tab === 'team' ? <TeamView isAdmin={isAdmin} meId={user.id} flash={flash} onChanged={loadMembers}
-            theme={theme} onTheme={saveTheme} />
+            theme={theme} onTheme={saveTheme} holidays={holidays} onHolidaysChanged={loadHolidays} />
           : tab === 'messages' ? <Messages meId={user.id} members={members} onConvUpdate={setChatUnread} />
-          : tab === 'requests' ? <RequestsView isAdmin={isAdmin} onGotoClient={gotoClient} onChanged={() => { loadTicketAlert(); refresh(); }} flash={flash} userName={user.name} />
-          : tab === 'calendar' ? <Calendar members={members} meId={user.id} onGotoClient={gotoClient} flash={flash} reloadSignal={liveTick} />
+          : tab === 'requests' ? <RequestsView isAdmin={isAdmin} holidays={holidays} onGotoClient={gotoClient} onChanged={() => { loadTicketAlert(); refresh(); }} flash={flash} userName={user.name} />
+          : tab === 'calendar' ? <Calendar members={members} meId={user.id} holidays={holidays} onGotoClient={gotoClient} flash={flash} reloadSignal={liveTick} />
           : tab === 'activity' ? <ActivityView members={members} clients={clients} onGoto={gotoClient} reloadSignal={liveTick} />
           : tab === 'clients' ? <MobileClientsView clients={clients} onGoto={gotoClient} onAdd={() => setModal({ type: 'client' })} />
           : tab === 'today' ? <TodayView today={today} scope={scope} onScope={setScope} onStatus={changeStatus} onGoto={gotoClient}
@@ -406,7 +409,7 @@ export default function App() {
 
       {modal?.type === 'client' && <ClientModal client={modal.client} onSave={saveClient}
         onDelete={() => { setModal(null); deleteClient(modal.client); }} onClose={() => setModal(null)} />}
-      {modal?.type === 'task' && <TaskModal task={modal.task} members={members} onSave={saveTask} onClose={() => setModal(null)} />}
+      {modal?.type === 'task' && <TaskModal task={modal.task} members={members} holidays={holidays} onSave={saveTask} onClose={() => setModal(null)} />}
       {modal?.type === 'import' && <ImportModal onImport={doImport} onClose={() => setModal(null)} />}
       {modal?.type === 'confirm' && <Confirm {...modal} onClose={() => setModal(null)} />}
 
@@ -750,7 +753,7 @@ function TodaySection({ title, kind, items, scope, onStatus, onGoto }) {
   );
 }
 
-function TeamView({ isAdmin, meId, flash, onChanged, theme, onTheme }) {
+function TeamView({ isAdmin, meId, flash, onChanged, theme, onTheme, holidays = [], onHolidaysChanged }) {
   const [data, setData] = useState(null);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
@@ -791,6 +794,7 @@ function TeamView({ isAdmin, meId, flash, onChanged, theme, onTheme }) {
       <div className="topbar"><div className="who"><h2>Team</h2><div className="sub">{data.members.length} member{data.members.length === 1 ? '' : 's'}</div></div></div>
       <div className="content" style={{ maxWidth: 760 }}>
         {isAdmin && <ThemePicker theme={theme} onTheme={onTheme} />}
+        {isAdmin && <HolidaysAdmin holidays={holidays} onChanged={onHolidaysChanged} flash={flash} />}
         {isAdmin && (
           <div className="team-invite">
             <h3 className="block-title">Invite someone</h3>
@@ -893,7 +897,60 @@ function ThemePicker({ theme, onTheme }) {
   );
 }
 
-const TK_TONE = { 'Submitted': 'submitted', 'Accepted': 'accepted', 'In progress': 'inprogress', 'Needs your input': 'needs', 'Completed': 'done', 'Declined': 'declined', 'Cancelled': 'declined' };
+// Admin-only manager for office holidays / closure dates. Adding or removing a
+// date refreshes the app-level holidays list (via onChanged), so the soft
+// warnings update everywhere immediately.
+function HolidaysAdmin({ holidays = [], onChanged, flash }) {
+  const [day, setDay] = useState('');
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const todayKey = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local
+
+  const add = async (e) => {
+    e.preventDefault();
+    if (!day) return;
+    setBusy(true);
+    try {
+      await api.addHoliday(day, label.trim());
+      setDay(''); setLabel('');
+      if (onChanged) await onChanged();
+      flash('Holiday saved');
+    } catch (err) { flash(err.message); } finally { setBusy(false); }
+  };
+  const remove = async (h) => {
+    try { await api.deleteHoliday(h.id); if (onChanged) await onChanged(); }
+    catch (e) { flash(e.message); }
+  };
+
+  return (
+    <div className="team-invite" style={{ marginBottom: 8 }}>
+      <h3 className="block-title">Office holidays</h3>
+      <p className="share-hint" style={{ margin: '0 0 12px' }}>Dates the office is closed. Scheduling a task, event, or request target on one of these — or on a weekend — shows a heads-up. It never blocks you.</p>
+      <form onSubmit={add} className="invite-row">
+        <input type="date" value={day} onChange={(e) => setDay(e.target.value)} required />
+        <input type="text" placeholder="e.g. Independence Day (observed)" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={120} />
+        <button className="btn primary" type="submit" disabled={busy || !day}>{busy ? 'Saving…' : 'Add'}</button>
+      </form>
+      {holidays.length === 0
+        ? <p className="none" style={{ marginTop: 12 }}>No holidays added yet.</p>
+        : <div className="team-list" style={{ marginTop: 12 }}>
+            {holidays.map((h) => (
+              <div className="team-row" key={h.id}>
+                <div className="tr-id">
+                  <span className="tr-name">{h.label || 'Holiday'}{h.day < todayKey && <span className="you"> · past</span>}</span>
+                  <span className="tr-email">{fmt(h.day)}</span>
+                </div>
+                <div className="tr-actions">
+                  <button className="btn sm danger" onClick={() => remove(h)}>Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>}
+    </div>
+  );
+}
 const tkTime = (s) => new Date(s.replace(' ', 'T')).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 function RequesterPanel({ client, onClose }) {
@@ -947,14 +1004,14 @@ function RequesterPanel({ client, onClose }) {
   );
 }
 
-function RequestsView({ isAdmin, onGotoClient, onChanged, flash, userName }) {
+function RequestsView({ isAdmin, holidays = [], onGotoClient, onChanged, flash, userName }) {
   const [data, setData] = useState(null);
   const [openId, setOpenId] = useState(null);
   const load = useCallback(() => api.tickets().then(setData).catch(() => setData({ tickets: [], queue: 0 })), []);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(load, 12000); return () => clearInterval(t); }, [load]);
 
-  if (openId) return <TicketDetailTeam id={openId} isAdmin={isAdmin} userName={userName} onBack={() => { setOpenId(null); load(); }}
+  if (openId) return <TicketDetailTeam id={openId} isAdmin={isAdmin} userName={userName} holidays={holidays} onBack={() => { setOpenId(null); load(); }}
     onGotoClient={onGotoClient} onChanged={() => { load(); onChanged(); }} flash={flash} />;
 
   const tickets = data?.tickets || [];
@@ -999,7 +1056,7 @@ function TicketRow({ t, onClick }) {
   );
 }
 
-function TicketDetailTeam({ id, isAdmin, userName, onBack, onGotoClient, onChanged, flash }) {
+function TicketDetailTeam({ id, isAdmin, userName, holidays = [], onBack, onGotoClient, onChanged, flash }) {
   const [t, setT] = useState(null);
   const [draft, setDraft] = useState('');
   const [target, setTarget] = useState(null); // null = uninitialized
@@ -1044,6 +1101,7 @@ function TicketDetailTeam({ id, isAdmin, userName, onBack, onGotoClient, onChang
               <label>Target completion date <span className="hint">— {t.requestedDate ? 'prefilled from their request; change if needed' : 'optional'}</span></label>
               <input type="date" value={target || ''} onChange={(e) => setTarget(e.target.value)} />
               {t.requestedDate && target !== t.requestedDate && <button className="btn sm" type="button" onClick={() => setTarget(t.requestedDate)}>Use requested ({fmtDate(t.requestedDate)})</button>}
+              <DateWarn date={target} holidays={holidays} />
             </div>
             <div className="triage-actions">
               <button className="btn primary" onClick={accept}>Accept → create task</button>
