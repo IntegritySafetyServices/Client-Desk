@@ -1483,12 +1483,23 @@ function TimelineTask({ it }) {
 
 function TimelineEntry({ en, today, onSave, onDelete }) {
   const isReminder = en.kind === 'reminder';
+  const isNote = en.kind === 'note';
   const overdue = isReminder && en.date < today;
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(en.body);
   const [date, setDate] = useState(en.date);
   const startEdit = () => { setBody(en.body); setDate(en.date); setEditing(true); };
   const save = async () => { const b = body.trim(); if (!b) return; await onSave(en.id, { body: b, date }); setEditing(false); };
+
+  // Meeting-notes block (notes only): collapsed by default behind a plain arrow.
+  const hasDetails = !!(en.details && en.details.trim());
+  const [expanded, setExpanded] = useState(false);
+  const [editDetails, setEditDetails] = useState(false);
+  const [detailsText, setDetailsText] = useState(en.details || '');
+  const startDetails = () => { setDetailsText(en.details || ''); setEditDetails(true); };
+  const saveDetails = async () => { await onSave(en.id, { details: detailsText }); setEditDetails(false); };
+  const showEditor = editDetails || !hasDetails;
+
   return (
     <div className={'tl-item tl-entry ' + en.kind + (overdue ? ' overdue' : '')}>
       <span className="tl-date">{fmtDate(en.date)}</span>
@@ -1497,6 +1508,11 @@ function TimelineEntry({ en, today, onSave, onDelete }) {
         <div className="tl-card-top">
           <span className="tl-kind">{isReminder ? (overdue ? 'Reminder · overdue' : 'Reminder') : 'Note'}</span>
           <div className="tl-actions">
+            {isNote && !editing && (
+              <button className={'icon-btn tl-expand' + (expanded ? ' open' : '')} title={expanded ? 'Hide meeting notes' : 'Meeting notes'} onClick={() => setExpanded((v) => !v)}>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6l4 4 4-4" /></svg>
+              </button>
+            )}
             {!editing && (
               <button className="icon-btn" title="Edit" onClick={startEdit}>
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2l3 3-8 8H3v-3z" /></svg>
@@ -1520,6 +1536,25 @@ function TimelineEntry({ en, today, onSave, onDelete }) {
           <>
             <p className="tl-body">{en.body}</p>
             {en.author && <span className="tl-by">{en.author}</span>}
+            {isNote && expanded && (
+              <div className="tl-notes">
+                {showEditor ? (
+                  <div className="tl-notes-edit">
+                    <textarea value={detailsText} onChange={(e) => setDetailsText(e.target.value)} placeholder="Meeting notes…" />
+                    <div className="tl-edit-row">
+                      <button className="btn xs primary" onClick={saveDetails}>Save notes</button>
+                      {hasDetails && <button className="btn xs" onClick={() => { setEditDetails(false); setDetailsText(en.details || ''); }}>Cancel</button>}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="tl-notes-show">
+                    <div className="tl-notes-label">Meeting notes</div>
+                    <p className="tl-notes-body">{en.details}</p>
+                    <button className="btn xs" onClick={startDetails}>Edit notes</button>
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>

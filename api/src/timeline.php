@@ -9,6 +9,7 @@ function timeline_entry_api(array $r): array {
         'kind'      => $r['kind'],                 // 'reminder' | 'note'
         'id'        => (int)$r['id'],
         'body'      => $r['body'],
+        'details'   => $r['details'] ?? null,      // notes only: optional meeting-notes block
         'date'      => $r['entry_date'],
         'done'      => $r['done_at'] !== null,
         'doneAt'    => $r['done_at'],
@@ -115,8 +116,15 @@ function timeline_update(array $user, int $id): void {
     $body = array_key_exists('body', $b) ? trim((string)$b['body']) : $cur['body'];
     if ($body === '') json_out(['error' => 'Write something first'], 422);
     $date = array_key_exists('date', $b) ? (norm_date($b['date']) ?? $cur['entry_date']) : $cur['entry_date'];
-    $s = db()->prepare('UPDATE timeline_entries SET body = ?, entry_date = ? WHERE id = ?');
-    $s->execute([$body, $date, $id]);
+    // Meeting-notes block (notes only). Blank clears it back to NULL.
+    if (array_key_exists('details', $b)) {
+        $dt = trim((string)$b['details']);
+        $details = $dt === '' ? null : $dt;
+    } else {
+        $details = $cur['details'];
+    }
+    $s = db()->prepare('UPDATE timeline_entries SET body = ?, details = ?, entry_date = ? WHERE id = ?');
+    $s->execute([$body, $details, $date, $id]);
     json_out(['ok' => true]);
 }
 
